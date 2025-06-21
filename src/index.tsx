@@ -5,14 +5,40 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { ThemeProvider } from 'styled-components';
 
-const theme = {};
-
+const darkTheme = {
+  background: '#18181b',
+  header: '#1e293b',
+  headerText: '#fff',
+  bubbleUser: '#2563eb',
+  bubbleBot: '#27272a',
+  bubbleUserText: '#fff',
+  bubbleBotText: '#e5e7eb',
+  inputBg: '#27272a',
+  inputBorder: '#3f3f46',
+  inputText: '#fff',
+  statusOnline: '#22c55e',
+  statusOffline: '#ef4444',
+};
+const lightTheme = {
+  background: '#fff',
+  header: '#f0f0f0',
+  headerText: '#000',
+  bubbleUser: '#2563eb',
+  bubbleBot: '#f0f0f0',
+  bubbleUserText: '#fff',
+  bubbleBotText: '#000',
+  inputBg: '#f0f0f0',
+  inputBorder: '#d1d5db',
+  inputText: '#000',
+  statusOnline: '#22c55e',
+  statusOffline: '#ef4444',
+};
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={lightTheme}>
       <App />
     </ThemeProvider>
   </React.StrictMode>
