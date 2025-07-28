@@ -1,181 +1,141 @@
-import React, { useState, useEffect, useRef } from 'react';
-import styled, { useTheme } from 'styled-components';
+import React, { useState, useEffect, useRef} from 'react';
 import MessageList, { Message } from './MessageList';
 import MessageInput from './MessageInput';
 import TypingIndicator from './TypingIndicator';
+import { getChatHistory, sendChatMessage, createChatSocketIO } from '../api/chatApi';
 
 export interface ChatWidgetProps {
   apiKey: string;
   group: string;
   subGroup?: string;
   position?: 'bottom-right' | 'bottom-left';
-  baseUrl: string;
+  historyBaseUrl: string;
+  chatBaseUrl: string;
   onMessageSent?: (message: string) => void;
   onError?: (error: Error) => void;
 }
-
-const WidgetContainer = styled.div<{ minimized: boolean; position: string }>`
-  position: fixed;
-  ${(props) =>
-    props.position === 'bottom-right'
-      ? 'right: 24px;'
-      : 'left: 24px;'}
-  bottom: 24px;
-  z-index: 1000;
-  width: 350px;
-  max-width: 95vw;
-  height: ${(props) => (props.minimized ? '56px' : '500px')};
-  box-shadow: 0 4px 24px rgba(0,0,0,0.15);
-  border-radius: 16px;
-  background: ${(props) => props.theme.background};
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: height 0.2s;
-`;
-
-const Header = styled.div`
-  background: ${(props) => props.theme.header};
-  color: ${(props) => props.theme.headerText};
-  padding: 12px 16px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-`;
-
-const StatusDot = styled.span<{ online: boolean }>`
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 8px;
-  background: ${(props) => (props.online ? props.theme.statusOnline : props.theme.statusOffline)};
-  box-shadow: 0 0 2px #0002;
-  vertical-align: middle;
-`;
-
-const BotIcon = styled.span`
-  display: flex;
-  align-items: center;
-  margin-right: 8px;
-  svg {
-    width: 20px;
-    height: 20px;
-    fill: #2563eb;
-  }
-`;
 
 const ChatWidget: React.FC<ChatWidgetProps> = ({
   apiKey,
   group,
   subGroup,
   position = 'bottom-right',
-  baseUrl,
+  historyBaseUrl,
+  chatBaseUrl,
   onMessageSent,
   onError,
 }) => {
   const [minimized, setMinimized] = useState(false);
+  const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const wsRef = useRef<WebSocket | null>(null);
-  const theme = useTheme();
+  const socketRef = useRef<any>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Load chat history
   useEffect(() => {
     const loadHistory = async () => {
       try {
-        const params = new URLSearchParams({ group, ...(subGroup ? { subGroup } : {}) });
-        const res = await fetch(`${baseUrl}/api/chat/history?${params.toString()}`);
-        if (!res.ok) throw new Error('Failed to load history');
-        const data = await res.json();
-        setMessages(data.messages || []);
+        const data = await getChatHistory(historyBaseUrl, group, subGroup);
+        setMessages(data);
+        setErrorMsg(null);
       } catch (err: any) {
+        setErrorMsg('Failed to load chat history.');
         onError?.(err);
       }
     };
     loadHistory();
     // eslint-disable-next-line
-  }, [group, subGroup, baseUrl]);
+  }, [group, subGroup, historyBaseUrl]);
 
-  // WebSocket setup
+  // Socket.IO setup
   useEffect(() => {
-    const wsUrl = `${baseUrl.replace(/^http/, 'ws')}/chat?apiKey=${apiKey}&group=${group}${subGroup ? `&subGroup=${subGroup}` : ''}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.onopen = () => setIsOnline(true);
-    ws.onclose = () => setIsOnline(false);
-    ws.onerror = () => setIsOnline(false);
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+    socketRef.current = createChatSocketIO({
+      baseUrl: chatBaseUrl,
+      apiKey,
+      group,
+      subGroup,
+      onConnect: () => setIsOnline(true),
+      onDisconnect: () => setIsOnline(false),
+      onMessage: (msg) => {
+        if(msg.sender === "bot"){
+          setIsTyping(false)
+          console.log("typing false")
+        }
+        if(msg.sender === "user"){
+          setIsTyping(true)
+          console.log("typing true")
+        }
+        
         setMessages((prev) => [...prev, msg]);
-      } catch {
-        // fallback: treat as plain text
-        setMessages((prev) => [...prev, { id: Date.now().toString(), text: event.data, sender: 'bot', timestamp: Date.now() }]);
-      }
+      },
+    });
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
     };
-    return () => ws.close();
     // eslint-disable-next-line
-  }, [apiKey, group, subGroup, baseUrl]);
+  }, [apiKey, group, subGroup, chatBaseUrl]);
 
   // Send message (and file)
-  const handleSend = async (text: string, file?: File | null) => {
-    try {
-      let sentMsg: Message | null = null;
-      if (file) {
-        const formData = new FormData();
-        formData.append('group', group);
-        if (subGroup) formData.append('subGroup', subGroup);
-        formData.append('text', text);
-        formData.append('file', file);
-        const res = await fetch(`${baseUrl}/api/chat/message`, {
-          method: 'POST',
-          body: formData,
-        });
-        if (!res.ok) throw new Error('Failed to send message');
-        sentMsg = await res.json();
-      } else {
-        const res = await fetch(`${baseUrl}/api/chat/message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ group, subGroup, text }),
-        });
-        if (!res.ok) throw new Error('Failed to send message');
-        sentMsg = await res.json();
-      }
-      if (sentMsg) setMessages((prev) => [...prev, sentMsg]);
-      onMessageSent?.(text);
-      // Also send over WebSocket
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify(sentMsg));
-      }
-    } catch (err: any) {
-      onError?.(err);
-    }
-  };
+  const handleSend = () => {
+    if (!inputText.trim() || !socketRef.current || !isOnline) return;
 
+    const message = {
+      id: `msg-${Date.now()}`,
+      content: inputText.trim(),
+      sender: 'user',
+      roomId: `${group}-${subGroup || 'default'}`,
+      timestamp: Date.now(),
+      type: 'user-message',
+    };
+
+    // Send via Socket.IO
+    socketRef.current.emit('send-message', message);
+
+    // Optimistically update UI
+    setMessages(prev => [...prev, {
+      id: message.id,
+      text: message.content,
+      sender: 'user',
+      timestamp: message.timestamp,
+    }]);
+
+    setInputText('');
+    //onMessageSent?.();
+  };
   return (
-    <WidgetContainer minimized={minimized} position={position} theme={theme}>
-      <Header onClick={() => setMinimized((m) => !m)} theme={theme}>
-        <span>
-          <StatusDot online={isOnline} theme={theme} />
-          <span style={{ fontSize: 14 }}>
-            {isOnline ? 'Online' : 'Offline'}
-          </span>
+    <div
+      className={`fixed ${position === 'bottom-right' ? 'right-6' : 'left-6'} bottom-6 z-[1000] w-[350px] max-w-[95vw] ${minimized ? 'h-14' : 'h-[500px]'} shadow-2xl rounded-2xl bg-white dark:bg-zinc-900 flex flex-col transition-all duration-200 overflow-hidden`}
+    >
+      <div
+        className="bg-gray-100 dark:bg-zinc-800 text-black dark:text-white px-4 py-3 font-semibold flex items-center justify-between cursor-pointer select-none"
+        onClick={() => setMinimized((m) => !m)}
+      >
+        <span className="flex items-center">
+          <span
+            className={`inline-block w-2.5 h-2.5 rounded-full mr-2 shadow ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}
+          />
+          <span className="text-sm">{isOnline ? 'Online' : 'Offline'}</span>
         </span>
         <span>{minimized ? '▲' : '▼'}</span>
-      </Header>
+      </div>
       {!minimized && (
         <>
+          {errorMsg && (
+            <div className="text-red-500 bg-red-50 p-2 rounded-lg m-2 text-sm">
+              {errorMsg}
+            </div>
+          )}
           <MessageList messages={messages} />
           <TypingIndicator isTyping={isTyping} />
-          <MessageInput onSend={handleSend} disabled={isTyping} />
+          <MessageInput onSend={handleSend} disabled={isTyping} value={inputText} setValue={setInputText} />
         </>
       )}
-    </WidgetContainer>
+    </div>
   );
 };
 

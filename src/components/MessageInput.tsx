@@ -1,100 +1,14 @@
-import React, { useState, ChangeEvent } from 'react';
-import styled from 'styled-components';
+import React, { useState, ChangeEvent, KeyboardEvent } from 'react';
 
 interface MessageInputProps {
   onSend: (text: string, file?: File | null) => void;
   disabled?: boolean;
+  value: string;
+  setValue : (value: string) => void;
 }
 
-const InputContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  padding: 12px 16px;
-  background: ${(props) => props.theme.inputBg || '#fff'};
-  border-top: 1px solid ${(props) => props.theme.inputBorder || '#e5e7eb'};
-`;
-
-const Row = styled.div`
-  display: flex;
-  align-items: center;
-`;
-
-const Input = styled.input`
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 1rem;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f3f4f6;
-  margin-right: 8px;
-`;
-
-const SendButton = styled.button`
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  padding: 0 12px;
-  font-weight: 600;
-  font-size: 1.3rem;
-  cursor: pointer;
-  transition: background 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  width: 40px;
-  margin-left: 4px;
-  &:hover {
-    background: #1d4ed8;
-  }
-`;
-
-const AttachButton = styled.label`
-  background: #e5e7eb;
-  color: #2563eb;
-  border: none;
-  border-radius: 12px;
-  padding: 0 10px;
-  font-size: 1.3rem;
-  cursor: pointer;
-  margin-right: 8px;
-  display: flex;
-  align-items: center;
-  height: 40px;
-  justify-content: center;
-`;
-
-const FileInfo = styled.div`
-  display: flex;
-  align-items: center;
-  background: #f3f4f6;
-  border-radius: 8px;
-  padding: 4px 8px;
-  margin-top: 8px;
-  font-size: 0.95rem;
-`;
-
-const RemoveFile = styled.button`
-  background: none;
-  border: none;
-  color: #ef4444;
-  margin-left: 6px;
-  cursor: pointer;
-  font-size: 1.1rem;
-`;
-
-const ImagePreview = styled.img`
-  max-width: 120px;
-  max-height: 80px;
-  border-radius: 8px;
-  margin-top: 8px;
-  box-shadow: 0 1px 4px #0001;
-`;
-
-const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled }) => {
-  const [value, setValue] = useState('');
+const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled, value, setValue }) => {
+  //const [value, setValue] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -137,43 +51,62 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled }) => {
   };
 
   return (
-    <InputContainer>
-      <Row>
-        <AttachButton title="Attach file">
+    <div className="flex flex-col p-4 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-700">
+      <div className="flex items-center">
+        <label
+          className="bg-gray-200 dark:bg-zinc-700 text-blue-600 rounded-xl px-2 text-xl cursor-pointer mr-2 flex items-center h-10 justify-center"
+          title="Attach file"
+        >
           📎
           <input
             type="file"
-            style={{ display: 'none' }}
+            className="hidden"
             accept=".pdf,image/png,image/jpeg,image/jpg"
             onChange={handleFileChange}
             disabled={disabled}
           />
-        </AttachButton>
-        <Input
+        </label>
+        <input
           type="text"
           placeholder="Type a message..."
           value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={e => {
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
             if (e.key === 'Enter') handleSend();
           }}
           disabled={disabled}
+          className="flex-1 border-none outline-none text-base px-3 py-2 rounded-xl bg-gray-100 dark:bg-zinc-800 mr-2"
         />
-        <SendButton onClick={handleSend} disabled={disabled || (!value.trim() && !file)} title="Send">
+        <button
+          onClick={handleSend}
+          disabled={disabled || (!value.trim() && !file)}
+          title="Send"
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center h-10 w-10 ml-1 transition-colors disabled:opacity-50"
+        >
           <span role="img" aria-label="Send">✈️</span>
-        </SendButton>
-      </Row>
+        </button>
+      </div>
       {file && (
-        <FileInfo>
+        <div className="flex items-center bg-gray-100 dark:bg-zinc-800 rounded-lg px-2 py-1 mt-2 text-sm">
           {file.name}
-          <RemoveFile onClick={removeFile} title="Remove file">×</RemoveFile>
-        </FileInfo>
+          <button
+            onClick={removeFile}
+            title="Remove file"
+            className="ml-2 text-red-500 text-lg bg-transparent border-none cursor-pointer"
+          >
+            ×
+          </button>
+        </div>
       )}
       {imagePreview && (
-        <ImagePreview src={imagePreview} alt="Preview" />
+        <img
+          src={imagePreview}
+          alt="Preview"
+          className="max-w-[120px] max-h-[80px] rounded-lg mt-2 shadow"
+        />
       )}
-      {fileError && <div style={{ color: '#ef4444', marginTop: 8 }}>{fileError}</div>}
-    </InputContainer>
+      {fileError && <div className="text-red-500 mt-2 text-sm">{fileError}</div>}
+    </div>
   );
 };
 

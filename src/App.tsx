@@ -8,7 +8,8 @@ function App() {
       <ChatWidget
         apiKey="demo-key"
         group="demo-group"
-        baseUrl="wss://example.com"
+        historyBaseUrl="http://localhost:5000"
+        chatBaseUrl="http://localhost:8000/ai-support" // ai-support service
         onMessageSent={() => {}}
         onError={() => {}}
       />
