@@ -70,7 +70,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
           setIsTyping(true)
           console.log("typing true")
         }
-        
+        console.log("on message", msg)
         setMessages((prev) => [...prev, msg]);
       },
     });

@@ -19,7 +19,7 @@ root.render(
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
 
-
+/*
 const socket = io('http://localhost:8000/ai-support', {
   query: {
     apiKey: 'demo-key',
@@ -49,3 +49,4 @@ socket.on('message', (msg) => {
 
 
 socket.emit('message', { text: 'Hello from client', sender: 'user', timestamp: Date.now() });
+*/

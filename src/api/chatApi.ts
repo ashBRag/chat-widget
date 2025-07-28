@@ -128,8 +128,19 @@ export function createChatSocketIO({
     transports: ['websocket'],
     withCredentials: true,
   });
-  if (onConnect) socket.on('connect', onConnect);
+  //if (onConnect) socket.on('connect', onConnect);
   if (onDisconnect) socket.on('disconnect', onDisconnect);
-  if (onMessage) socket.on('message', onMessage);
+  //if (onMessage) socket.on('message', onMessage);
+  socket.on('connect', () => {
+    console.log('createChatSocketIO connected');
+    socket.emit('join-room', {roomId:'demo-group-default'});
+
+    onConnect?.();
+  });
+  
+  socket.on('message', (msg: any) => {
+    console.log('createChatSocketIO received:', msg);
+    onMessage?.(msg);
+  });
   return socket;
 } 
